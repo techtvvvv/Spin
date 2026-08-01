@@ -11,7 +11,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             font-family: 'Segoe UI', sans-serif;
             color: white;
         }
@@ -28,7 +28,7 @@
             max-width: 100%;
             border-radius: 20px;
             box-shadow: 0 0 40px rgba(255, 215, 0, 0.6);
-            transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+            /* ✅ FIX: transition canvas ke andar set karo, style mein nahi */
         }
         .pointer {
             position: absolute; top: -15px; left: 50%;
@@ -44,9 +44,10 @@
             transition: transform 0.2s;
         }
         .btn:active { transform: scale(0.95); }
-        .btn:disabled { opacity: 0.5; transform: none; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .result { font-size: 24px; margin-top: 25px; font-weight: bold; min-height: 40px; }
         .hidden { display: none; }
+        .error { color: #e74c3c; font-size: 18px; margin-top: 20px; }
     </style>
 </head>
 <body>
@@ -60,18 +61,22 @@
         <div id="resultDiv" class="result hidden"></div>
     </div>
 
+    <!-- ✅ Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
+        tg.ready();
 
+        // ✅ URL params parse karo
         const urlParams = new URLSearchParams(window.location.search);
         const spinToken = urlParams.get('token');
-        const rewardLabel = urlParams.get('label') || '₹0';   // e.g., "₹2"
+        const rewardLabel = urlParams.get('label') || '₹0';
 
+        // ✅ Token validation
         if (!spinToken) {
-            document.body.innerHTML = '<h2 style="color:red;">❌ Invalid session</h2>';
-            setTimeout(() => tg.close(), 1500);
+            document.body.innerHTML = '<h2 style="color:red;text-align:center;margin-top:40vh;">❌ Invalid session</h2>';
+            setTimeout(() => tg.close(), 2000);
         }
 
         // ----- Wheel segments (8 segments) -----
@@ -86,73 +91,131 @@
             { label: '₹0.5', color: '#f1c40f' }
         ];
 
-        // Map reward label to segment index (choose the first matching segment)
+        // ✅ rewardLabel se closest matching segment index nikalo
         const rewardMap = {
-            '₹0': 0,    // can also be 6, but we pick index 0 for simplicity
-            '₹0.5': 1,  // or 7, pick 1
+            '₹0': 0,
+            '₹0.5': 1,
             '₹1': 2,
             '₹2': 3,
             '₹5': 4,
             '₹10': 5
         };
-        let targetIdx = rewardMap[rewardLabel] ?? 0;  // default to 0
+        let targetIdx = rewardMap[rewardLabel] ?? 0;
 
         const canvas = document.getElementById('wheel');
         const ctx = canvas.getContext('2d');
         const spinBtn = document.getElementById('spinBtn');
         const resultDiv = document.getElementById('resultDiv');
-        let spinning = false, currentRotation = 0;
+        let spinning = false;
+        let currentRotation = 0;
 
-        function drawWheel() {
-            const cx = canvas.width/2, cy = canvas.height/2, radius = 140;
+        // ----- Wheel Draw -----
+        function drawWheel(rotationDeg = 0) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const radius = 140;
             const arc = (2 * Math.PI) / segments.length;
+            const rotationRad = (rotationDeg * Math.PI) / 180;
+
             for (let i = 0; i < segments.length; i++) {
-                const angle = i * arc;
+                const angle = rotationRad + i * arc;
                 ctx.beginPath();
                 ctx.moveTo(cx, cy);
                 ctx.arc(cx, cy, radius, angle, angle + arc);
                 ctx.fillStyle = segments[i].color;
                 ctx.fill();
-                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
                 ctx.save();
                 ctx.translate(cx, cy);
-                ctx.rotate(angle + arc/2);
-                ctx.fillStyle = '#fff'; ctx.font = 'bold 15px "Segoe UI"'; ctx.textAlign = 'right';
+                ctx.rotate(angle + arc / 2);
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 15px "Segoe UI"';
+                ctx.textAlign = 'right';
                 ctx.fillText(segments[i].label, radius - 18, 6);
                 ctx.restore();
             }
-            ctx.beginPath(); ctx.arc(cx, cy, 28, 0, 2*Math.PI);
-            ctx.fillStyle = '#0f0f1a'; ctx.fill();
-            ctx.strokeStyle = '#f6d365'; ctx.lineWidth = 4; ctx.stroke();
-            ctx.font = 'bold 18px "Segoe UI"'; ctx.fillStyle = '#f6d365'; ctx.textAlign = 'center';
-            ctx.fillText('🎰', cx, cy+7);
-        }
-        drawWheel();
 
+            // Center circle
+            ctx.beginPath();
+            ctx.arc(cx, cy, 28, 0, 2 * Math.PI);
+            ctx.fillStyle = '#0f0f1a';
+            ctx.fill();
+            ctx.strokeStyle = '#f6d365';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            ctx.font = 'bold 18px "Segoe UI"';
+            ctx.fillStyle = '#f6d365';
+            ctx.textAlign = 'center';
+            ctx.fillText('🎰', cx, cy + 7);
+        }
+
+        drawWheel(0);
+
+        // ✅ Canvas-based animation (CSS transform use NAHI — sendData ke baad DOM conflict hota tha)
         function spinTo(idx) {
             if (spinning) return;
-            spinning = true; spinBtn.disabled = true; resultDiv.classList.add('hidden');
+            spinning = true;
+            spinBtn.disabled = true;
+            resultDiv.classList.add('hidden');
+
             const segAngle = 360 / segments.length;
-            const targetAngle = idx * segAngle + segAngle/2 + (Math.random()*0.6-0.3)*segAngle;
-            const fullSpins = 360 * (5 + Math.floor(Math.random()*3));
-            const finalRotation = currentRotation + fullSpins + (360 - targetAngle);
-            canvas.style.transition = 'none';
-            canvas.offsetHeight; // reflow
-            canvas.style.transition = 'transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)';
-            canvas.style.transform = `rotate(${finalRotation}deg)`;
-            currentRotation = finalRotation;
-            setTimeout(() => {
-                canvas.style.transition = 'none';
-                spinning = false; spinBtn.disabled = false;
-                resultDiv.innerHTML = `🎉 You won ${rewardLabel}!`;
-                resultDiv.classList.remove('hidden');
-                tg.sendData(JSON.stringify({ token: spinToken })); // ab reward server se lega
-                setTimeout(() => tg.close(), 2500);
-            }, 4000);
+            // Pointer top (270 deg) pe target segment lao
+            const targetDeg = 270 - (idx * segAngle + segAngle / 2);
+            const extraRandom = (Math.random() * 0.6 - 0.3) * segAngle;
+            const fullSpins = 360 * (5 + Math.floor(Math.random() * 3));
+            const finalRotation = currentRotation + fullSpins + ((targetDeg - currentRotation) % 360 + 360) % 360 + extraRandom;
+
+            const duration = 4000; // ms
+            const startTime = performance.now();
+            const startRotation = currentRotation;
+
+            // ✅ easeOut cubic bezier approximation
+            function easeOut(t) {
+                return 1 - Math.pow(1 - t, 3);
+            }
+
+            function animate(now) {
+                const elapsed = now - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const easedProgress = easeOut(progress);
+                const currentDeg = startRotation + (finalRotation - startRotation) * easedProgress;
+                drawWheel(currentDeg);
+
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    // ✅ Animation complete
+                    currentRotation = finalRotation % 360;
+                    spinning = false;
+                    spinBtn.disabled = false;
+                    resultDiv.innerHTML = `🎉 You won ${rewardLabel}!`;
+                    resultDiv.classList.remove('hidden');
+
+                    // ✅ Bot ko data bhejo — token ke saath (reward server side se milega)
+                    try {
+                        tg.sendData(JSON.stringify({ token: spinToken }));
+                    } catch (e) {
+                        console.error('sendData error:', e);
+                    }
+
+                    // ✅ 2.5 sec baad close karo
+                    setTimeout(() => tg.close(), 2500);
+                }
+            }
+
+            requestAnimationFrame(animate);
         }
 
+        // ✅ Button click
         spinBtn.addEventListener('click', () => spinTo(targetIdx));
-        tg.MainButton.setText('SPIN').show().onClick(() => spinTo(targetIdx));
+
+        // ✅ Telegram MainButton (optional)
+        tg.MainButton.setText('SPIN').show();
+        tg.MainButton.onClick(() => spinTo(targetIdx));
     </script>
 </body>
 </html>

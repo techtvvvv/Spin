@@ -74,6 +74,7 @@
             setTimeout(() => tg.close(), 1500);
         }
 
+        // ----- Wheel segments (8 segments) -----
         const segments = [
             { label: '₹0',   color: '#e74c3c' },
             { label: '₹0.5', color: '#f39c12' },
@@ -85,10 +86,16 @@
             { label: '₹0.5', color: '#f1c40f' }
         ];
 
-        // token me last part index hai (optional, sirf visual ke liye)
-        const parts = spinToken.split('_');
-        let targetIdx = parseInt(parts[parts.length - 1]);
-        if (isNaN(targetIdx) || targetIdx < 0 || targetIdx >= segments.length) targetIdx = 0;
+        // Map reward label to segment index (choose the first matching segment)
+        const rewardMap = {
+            '₹0': 0,    // can also be 6, but we pick index 0 for simplicity
+            '₹0.5': 1,  // or 7, pick 1
+            '₹1': 2,
+            '₹2': 3,
+            '₹5': 4,
+            '₹10': 5
+        };
+        let targetIdx = rewardMap[rewardLabel] ?? 0;  // default to 0
 
         const canvas = document.getElementById('wheel');
         const ctx = canvas.getContext('2d');
@@ -129,6 +136,9 @@
             const targetAngle = idx * segAngle + segAngle/2 + (Math.random()*0.6-0.3)*segAngle;
             const fullSpins = 360 * (5 + Math.floor(Math.random()*3));
             const finalRotation = currentRotation + fullSpins + (360 - targetAngle);
+            canvas.style.transition = 'none';
+            canvas.offsetHeight; // reflow
+            canvas.style.transition = 'transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)';
             canvas.style.transform = `rotate(${finalRotation}deg)`;
             currentRotation = finalRotation;
             setTimeout(() => {
@@ -136,11 +146,7 @@
                 spinning = false; spinBtn.disabled = false;
                 resultDiv.innerHTML = `🎉 You won ${rewardLabel}!`;
                 resultDiv.classList.remove('hidden');
-                // 💡 Ab token ke saath reward bhi bhej rahe hain
-                tg.sendData(JSON.stringify({
-                    token: spinToken,
-                    reward: rewardLabel
-                }));
+                tg.sendData(JSON.stringify({ token: spinToken })); // ab reward server se lega
                 setTimeout(() => tg.close(), 2500);
             }, 4000);
         }

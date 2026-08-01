@@ -1,186 +1,152 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ultra Spin</title>
-
-<style>
-body {
-    margin: 0;
-    background: #0a0a0a;
-    color: white;
-    font-family: Arial;
-    text-align: center;
-}
-
-h1 {
-    margin-top: 20px;
-    color: gold;
-}
-
-.wheel-container {
-    position: relative;
-    width: 300px;
-    height: 300px;
-    margin: 40px auto;
-}
-
-#wheel {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    border: 10px solid gold;
-    box-shadow: 0 0 40px gold, inset 0 0 30px #000;
-    transition: transform 5s cubic-bezier(0.33, 1, 0.68, 1);
-}
-
-.pointer {
-    position: absolute;
-    top: -20px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 30px;
-    color: red;
-}
-
-button {
-    padding: 14px 40px;
-    font-size: 20px;
-    border-radius: 50px;
-    border: none;
-    background: linear-gradient(45deg, gold, orange);
-    color: black;
-    box-shadow: 0 0 20px gold;
-}
-
-#result {
-    margin-top: 20px;
-    font-size: 24px;
-    color: lime;
-}
-</style>
-</head>
-
-<body>
-
-<h1>🎰 SPIN & WIN</h1>
-
-<div class="wheel-container">
-    <div class="pointer">🔻</div>
-    <canvas id="wheel" width="300" height="300"></canvas>
-</div>
-
-<button onclick="spin()">SPIN NOW</button>
-
-<div id="result"></div>
-
-<audio id="tick" src="https://www.soundjay.com/button/sounds/button-16.mp3"></audio>
-<audio id="win" src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3"></audio>
-
-<script>
-const rewards = ["0", "0.5", "1", "2", "5", "10"];
-const colors = ["#ff0055", "#ffaa00", "#00ffaa", "#00aaff", "#aa00ff", "#ff00aa"];
-
-const canvas = document.getElementById("wheel");
-const ctx = canvas.getContext("2d");
-
-let spinning = false;
-let angle = 0;
-
-function drawWheel() {
-    let slice = 2 * Math.PI / rewards.length;
-
-    for (let i = 0; i < rewards.length; i++) {
-        ctx.beginPath();
-        ctx.fillStyle = colors[i];
-        ctx.moveTo(150,150);
-        ctx.arc(150,150,150,i*slice,(i+1)*slice);
-        ctx.fill();
-
-        ctx.save();
-        ctx.translate(150,150);
-        ctx.rotate(i*slice + slice/2);
-        ctx.fillStyle = "#000";
-        ctx.font = "bold 16px Arial";
-        ctx.fillText("₹"+rewards[i], 80, 5);
-        ctx.restore();
-    }
-}
-
-drawWheel();
-
-function spin() {
-    if (spinning) return;
-    spinning = true;
-
-    let resultDiv = document.getElementById("result");
-    resultDiv.innerText = "Spinning...";
-
-    let rand = Math.floor(Math.random() * rewards.length);
-    let sliceDeg = 360 / rewards.length;
-
-    let finalAngle = (360 * 8) + (rand * sliceDeg);
-
-    let start = angle;
-    let end = start + finalAngle;
-
-    let duration = 5000;
-    let startTime = null;
-
-    function animate(time) {
-        if (!startTime) startTime = time;
-        let progress = time - startTime;
-
-        let ease = 1 - Math.pow(1 - progress / duration, 3);
-        angle = start + (end - start) * ease;
-
-        canvas.style.transform = `rotate(${angle}deg)`;
-
-        document.getElementById("tick").play();
-
-        if (progress < duration) {
-            requestAnimationFrame(animate);
-        } else {
-            let reward = rewards[rand];
-            resultDiv.innerText = "🎉 You Won ₹" + reward;
-
-            document.getElementById("win").play();
-            confetti();
-
-            // Telegram send
-            if (window.Telegram.WebApp) {
-                Telegram.WebApp.sendData(JSON.stringify({ reward }));
-            }
-
-            spinning = false;
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Spin & Win</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0f0f1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Segoe UI', sans-serif;
+            color: white;
         }
-    }
+        .container { text-align: center; padding: 20px; }
+        h2 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            background: linear-gradient(45deg, #f6d365, #fda085);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .wheel-wrapper { position: relative; display: inline-block; }
+        canvas {
+            max-width: 100%;
+            border-radius: 20px;
+            box-shadow: 0 0 40px rgba(255, 215, 0, 0.6);
+            transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+        }
+        .pointer {
+            position: absolute; top: -15px; left: 50%;
+            transform: translateX(-50%); font-size: 30px;
+            filter: drop-shadow(0 0 6px gold);
+        }
+        .btn {
+            background: linear-gradient(45deg, #f6d365, #fda085);
+            border: none; padding: 16px 50px; font-size: 22px;
+            font-weight: bold; color: #0f0f1a; border-radius: 50px;
+            margin-top: 30px; cursor: pointer;
+            box-shadow: 0 8px 20px rgba(253, 160, 133, 0.5);
+            transition: transform 0.2s;
+        }
+        .btn:active { transform: scale(0.95); }
+        .btn:disabled { opacity: 0.5; transform: none; }
+        .result { font-size: 24px; margin-top: 25px; font-weight: bold; min-height: 40px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🎰 Spin & Win</h2>
+        <div class="wheel-wrapper">
+            <div class="pointer">⬇️</div>
+            <canvas id="wheel" width="320" height="320"></canvas>
+        </div>
+        <button id="spinBtn" class="btn">SPIN NOW!</button>
+        <div id="resultDiv" class="result hidden"></div>
+    </div>
 
-    requestAnimationFrame(animate);
-}
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
 
-// 🎊 Confetti
-function confetti() {
-    for (let i = 0; i < 100; i++) {
-        let div = document.createElement("div");
-        div.style.position = "fixed";
-        div.style.width = "6px";
-        div.style.height = "6px";
-        div.style.background = "hsl(" + Math.random()*360 + ",100%,50%)";
-        div.style.top = "0";
-        div.style.left = Math.random()*100 + "%";
-        document.body.appendChild(div);
+        const urlParams = new URLSearchParams(window.location.search);
+        const spinToken = urlParams.get('token');
+        const rewardLabel = urlParams.get('label') || '₹0';   // e.g., "₹2"
 
-        let fall = setInterval(() => {
-            div.style.top = parseInt(div.style.top) + 6 + "px";
-            if (parseInt(div.style.top) > window.innerHeight) {
-                clearInterval(fall);
-                div.remove();
+        if (!spinToken) {
+            document.body.innerHTML = '<h2 style="color:red;">❌ Invalid session</h2>';
+            setTimeout(() => tg.close(), 1500);
+        }
+
+        const segments = [
+            { label: '₹0',   color: '#e74c3c' },
+            { label: '₹0.5', color: '#f39c12' },
+            { label: '₹1',   color: '#2ecc71' },
+            { label: '₹2',   color: '#3498db' },
+            { label: '₹5',   color: '#9b59b6' },
+            { label: '₹10',  color: '#e67e22' },
+            { label: '₹0',   color: '#95a5a6' },
+            { label: '₹0.5', color: '#f1c40f' }
+        ];
+
+        // token me last part index hai (optional, sirf visual ke liye)
+        const parts = spinToken.split('_');
+        let targetIdx = parseInt(parts[parts.length - 1]);
+        if (isNaN(targetIdx) || targetIdx < 0 || targetIdx >= segments.length) targetIdx = 0;
+
+        const canvas = document.getElementById('wheel');
+        const ctx = canvas.getContext('2d');
+        const spinBtn = document.getElementById('spinBtn');
+        const resultDiv = document.getElementById('resultDiv');
+        let spinning = false, currentRotation = 0;
+
+        function drawWheel() {
+            const cx = canvas.width/2, cy = canvas.height/2, radius = 140;
+            const arc = (2 * Math.PI) / segments.length;
+            for (let i = 0; i < segments.length; i++) {
+                const angle = i * arc;
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.arc(cx, cy, radius, angle, angle + arc);
+                ctx.fillStyle = segments[i].color;
+                ctx.fill();
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate(angle + arc/2);
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 15px "Segoe UI"'; ctx.textAlign = 'right';
+                ctx.fillText(segments[i].label, radius - 18, 6);
+                ctx.restore();
             }
-        }, 20);
-    }
-}
-</script>
+            ctx.beginPath(); ctx.arc(cx, cy, 28, 0, 2*Math.PI);
+            ctx.fillStyle = '#0f0f1a'; ctx.fill();
+            ctx.strokeStyle = '#f6d365'; ctx.lineWidth = 4; ctx.stroke();
+            ctx.font = 'bold 18px "Segoe UI"'; ctx.fillStyle = '#f6d365'; ctx.textAlign = 'center';
+            ctx.fillText('🎰', cx, cy+7);
+        }
+        drawWheel();
 
+        function spinTo(idx) {
+            if (spinning) return;
+            spinning = true; spinBtn.disabled = true; resultDiv.classList.add('hidden');
+            const segAngle = 360 / segments.length;
+            const targetAngle = idx * segAngle + segAngle/2 + (Math.random()*0.6-0.3)*segAngle;
+            const fullSpins = 360 * (5 + Math.floor(Math.random()*3));
+            const finalRotation = currentRotation + fullSpins + (360 - targetAngle);
+            canvas.style.transform = `rotate(${finalRotation}deg)`;
+            currentRotation = finalRotation;
+            setTimeout(() => {
+                canvas.style.transition = 'none';
+                spinning = false; spinBtn.disabled = false;
+                resultDiv.innerHTML = `🎉 You won ${rewardLabel}!`;
+                resultDiv.classList.remove('hidden');
+                // 💡 Ab token ke saath reward bhi bhej rahe hain
+                tg.sendData(JSON.stringify({
+                    token: spinToken,
+                    reward: rewardLabel
+                }));
+                setTimeout(() => tg.close(), 2500);
+            }, 4000);
+        }
+
+        spinBtn.addEventListener('click', () => spinTo(targetIdx));
+        tg.MainButton.setText('SPIN').show().onClick(() => spinTo(targetIdx));
+    </script>
 </body>
 </html>
